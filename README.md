@@ -1,20 +1,40 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ✨ Resume Former: Design Your Future
 
-# Run and deploy your AI Studio app
+**The ultimate AI-powered resume builder for the modern career landscape.**
 
-This contains everything you need to run your app locally.
+Live App: [https://rajmehta23.github.io/Resume_Former/](https://rajmehta23.github.io/Resume_Former/)
 
-View your app in AI Studio: https://ai.studio/apps/c726669b-abfa-484e-824c-1e74c0d9b2b2
+---
 
-## Run Locally
+## 🚀 Overview
 
-**Prerequisites:**  Node.js
+**Resume Former** is more than just a template—it's a smart career assistant designed to help you stand out. Whether you're a student building your first profile or a seasoned professional looking for an "Executive" look, this app creates polished, high-authority resumes in minutes.
 
+### Why use Resume Former?
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+*   **Intelligence Engine**: Our built-in AI helps you improve your summaries, suggests technical skills, and even writes impactful bullet points for your education and projects.
+*   **Design-First Templates**: Choose from several distinctive themes including **Executive**, **Neo-Tech**, **Zenith**, and **Modern UX**.
+*   **Live Preview**: See your changes in real-time on a pixel-perfect A4 sheet representation.
+*   **One-Click Export**: Download a professional, high-quality PDF ready for any job portal.
+*   **Local Privacy**: Your data is saved locally in your browser, keeping your personal information private while you work.
+
+---
+
+## 💡 Key Features
+
+- **Biometric Profile Upload**: Add a high-resolution headshot to your profile.
+- **Smart Analytics**: Get a "Resume Authority" score that tells you exactly how strong your profile is and what to add next.
+- **Automated Enhancements**: Turn simple descriptions into high-impact professional statements with the "Enhance with AI" button.
+- **Technical Matrix**: Organically categorize your skills into Frontend, Backend, Database, Cloud, and more.
+- **Responsive Controls**: Effortlessly switch between themes to see which visual style fits your persona best.
+
+---
+
+## 🛠️ Tech Stack
+
+*   **Frontend**: React + TypeScript
+*   **Styling**: Tailwind CSS
+*   **Animations**: Framer Motion
+*   **Intelligence**: Google Gemini AI
+*   **Graphics**: Three.js (for the immersive background)
+*   **PDF Engine**: html2canvas + jsPDF
