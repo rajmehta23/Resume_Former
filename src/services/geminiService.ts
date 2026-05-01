@@ -1,17 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { SkillSet } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getApiKey = () => {
+  const localKey = typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY_OVERRIDE') : null;
+  return localKey || process.env.GEMINI_API_KEY || '';
+};
 
 const MODEL_NAME = "gemini-3-flash-preview";
 
 export const suggestEducationPoints = async (school: string, degree: string, field: string) => {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is missing in the environment.");
-    return "";
-  }
+  const apiKey = getApiKey();
+  if (!apiKey) return "";
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `Suggest 3 high-impact professional bullet points for a student's resume who is studying ${degree} in ${field} at ${school}.
       
@@ -22,8 +24,7 @@ export const suggestEducationPoints = async (school: string, degree: string, fie
       4. DO NOT repeat the input parameters (school/degree) in the actual points unless necessary for context.
       5. Return ONLY the bullet points.`,
     });
-    let result = response.text?.trim() || "";
-    // Basic cleanup
+    let result = response.text || "";
     result = result.replace(/^(Here are some bullet points:|Points:)\s*/i, '');
     return result || "";
   } catch (error) {
@@ -33,13 +34,11 @@ export const suggestEducationPoints = async (school: string, degree: string, fie
 };
 
 export const suggestProjectDescription = async (projectName: string, technologies: string[]) => {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is missing in the environment.");
-    return "";
-  }
-  
+  const apiKey = getApiKey();
+  if (!apiKey) return "";
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `Write a concise, ARCHITECTURAL IMPACT summary (under 180 characters) for a project named "${projectName}" using technologies: ${technologies.join(', ')}.
       
@@ -49,7 +48,7 @@ export const suggestProjectDescription = async (projectName: string, technologie
       3. Do NOT just list the technologies again.
       4. Return ONLY the impact description without preamble or quotes.`,
     });
-    let result = response.text?.trim() || "";
+    let result = response.text || "";
     result = result.replace(/^["']|["']$/g, '');
     return result || "";
   } catch (error) {
@@ -59,13 +58,11 @@ export const suggestProjectDescription = async (projectName: string, technologie
 };
 
 export const improveText = async (text: string, context: string) => {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is missing in the environment.");
-    return text;
-  }
-  
+  const apiKey = getApiKey();
+  if (!apiKey) return text;
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `You are a professional resume writer. Your task is to REWRITE and IMPROVE the following text for a professional resume summary.
       
@@ -81,15 +78,9 @@ export const improveText = async (text: string, context: string) => {
       
       Provide ONLY the final improved text.`,
     });
-    
-    // Improved cleaning of response
-    let result = response.text?.trim() || text;
-    
-    // Remove common AI preambles if they leak through
-    result = result.replace(/^["']|["']$/g, ''); // Remove outer quotes
+    let result = response.text || text;
+    result = result.replace(/^["']|["']$/g, '');
     result = result.replace(/^(Here is the improved text:|Improved text:|Summary:)\s*/i, '');
-    
-    console.log("Gemini Text Improvement Success");
     return result.trim() || text;
   } catch (error) {
     console.error("Gemini Improvement Error:", error);
@@ -98,13 +89,11 @@ export const improveText = async (text: string, context: string) => {
 };
 
 export const suggestSkills = async (title: string, currentSkills: string[], category?: keyof SkillSet) => {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is missing in the environment.");
-    return null;
-  }
-  
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: category ? 
         `Suggest 5 highly relevant and trending ${String(category)} skills for an IT professional with the role: ${title}. 
@@ -118,17 +107,11 @@ export const suggestSkills = async (title: string, currentSkills: string[], cate
          
          Return ONLY a clean JSON object. No preamble, no markdown formatting.`,
     });
-    
-    let text = response.text?.trim() || (category ? "" : "{}");
-    // Clean markdown if AI included it
+    let text = response.text || (category ? "" : "{}");
     text = text.replace(/```json|```/g, "").trim();
-    
-    console.log("Gemini Skills Suggestion Success");
-    
     if (category) {
       return text.split(',').map(s => s.trim()).filter(Boolean);
     }
-
     return JSON.parse(text);
   } catch (error) {
     console.error("Gemini Skills Error:", error);
@@ -137,9 +120,11 @@ export const suggestSkills = async (title: string, currentSkills: string[], cate
 };
 
 export const suggestInterests = async (title: string) => {
-  if (!process.env.GEMINI_API_KEY) return [];
+  const apiKey = getApiKey();
+  if (!apiKey) return [];
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `Suggest 5 relevant professional/tech-related interests for a ${title} (e.g., Open Source, Green Tech, AR/VR, etc.). Return only a comma-separated list.`,
     });
@@ -151,9 +136,11 @@ export const suggestInterests = async (title: string) => {
 };
 
 export const suggestSpokenLanguages = async (location: string) => {
-  if (!process.env.GEMINI_API_KEY) return [];
+  const apiKey = getApiKey();
+  if (!apiKey) return [];
+  const client = new GoogleGenAI({ apiKey });
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: MODEL_NAME,
       contents: `Suggest 3 most relevant spoken languages for someone based in ${location} or working in global IT. 
       Format: "Language (Proficiency Level)". Return only a comma-separated list.`,

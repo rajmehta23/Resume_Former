@@ -38,7 +38,8 @@ import {
   Code2,
   CheckCircle2,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  Settings
 } from 'lucide-react';
 import { ResumeData, INITIAL_RESUME_DATA, SkillSet } from './types.ts';
 import ThreeBackground from './components/ThreeBackground.tsx';
@@ -87,6 +88,8 @@ export default function App() {
   });
   const [step, setStep] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKeyOverride, setApiKeyOverride] = useState(localStorage.getItem('GEMINI_API_KEY_OVERRIDE') || '');
 
   const calculateScore = (resume: ResumeData) => {
     let score = 0;
@@ -284,6 +287,17 @@ export default function App() {
     }
   };
 
+  const handleSaveApiKey = () => {
+    if (apiKeyOverride) {
+      localStorage.setItem('GEMINI_API_KEY_OVERRIDE', apiKeyOverride);
+    } else {
+      localStorage.removeItem('GEMINI_API_KEY_OVERRIDE');
+    }
+    setShowSettings(false);
+    // Reload or alert the user
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen text-slate-200 font-sans selection:bg-indigo-500/30">
       <ThreeBackground />
@@ -308,6 +322,14 @@ export default function App() {
           </div>
           <ThemeSwitcher current={data.theme} onSelect={handleApplyTheme} />
           
+          <button 
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-2 p-2 rounded-full hover:bg-white/10 transition-all text-slate-400 hover:text-white"
+            title="AI Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+
           <div className="h-6 w-px bg-white/10 mx-2 hidden sm:block" />
           
           <button 
@@ -444,6 +466,71 @@ export default function App() {
           </motion.div>
         </section>
       </main>
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center">
+                  <Sparkles className="text-indigo-400 w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">AI Settings</h2>
+                  <p className="text-xs text-slate-400">Configure your Gemini AI connection</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Gemini API Key</label>
+                  <input 
+                    type="password"
+                    value={apiKeyOverride}
+                    onChange={(e) => setApiKeyOverride(e.target.value)}
+                    placeholder="Enter your Gemini API Key..."
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all text-white placeholder:text-slate-600"
+                  />
+                  <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
+                    If AI features aren't working, you can provide your own key here. 
+                    Get one for free at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Google AI Studio</a>.
+                  </p>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    onClick={handleSaveApiKey}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-sm transition-all shadow-lg"
+                  >
+                    Save Changes
+                  </button>
+                  <button 
+                    onClick={() => {
+                        localStorage.removeItem('GEMINI_API_KEY_OVERRIDE');
+                        setApiKeyOverride('');
+                        window.location.reload();
+                    }}
+                    className="px-4 bg-slate-800 hover:bg-slate-700 py-3 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
