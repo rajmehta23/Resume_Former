@@ -156,8 +156,8 @@ export default function App() {
     }
 
     try {
-      // Pause briefly for any reflow layout
-      await new Promise(resolve => setTimeout(resolve, 80));
+      // Pause briefly for any reflow layout (250ms allows absolute layout safety across systems)
+      await new Promise(resolve => setTimeout(resolve, 250));
 
       const canvas = await html2canvas(element, {
         scale: 2, // Stable, high-fidelity scale that works seamlessly across all devices and browsers
@@ -236,6 +236,52 @@ export default function App() {
               overflow: visible !important;
               box-shadow: none !important;
               border-radius: 0 !important;
+            }
+
+            /* FORCE DESKTOP MEDIA STYLES INDEPENDENT OF PHONE SCREEN WIDTH */
+            #resume-preview-root .flex-col.md\\:flex-row {
+              flex-direction: row !important;
+            }
+            #resume-preview-root .w-full.md\\:w-\\[35\\%\\] {
+              width: 35% !important;
+            }
+            #resume-preview-root .p-6.md\\:p-8 {
+              padding: 2rem !important;
+            }
+            #resume-preview-root .gap-6.md\\:gap-10 {
+              gap: 2.5rem !important;
+            }
+            #resume-preview-root .px-6.md\\:px-10 {
+              padding-left: 2.5rem !important;
+              padding-right: 2.5rem !important;
+            }
+            #resume-preview-root .gap-6.md\\:gap-8 {
+              gap: 2rem !important;
+            }
+            #resume-preview-root .grid-cols-1.md\\:grid-cols-\\[180px_1fr\\] {
+              display: grid !important;
+              grid-template-columns: 180px 1fr !important;
+            }
+            #resume-preview-root .grid-cols-1.sm\\:grid-cols-2 {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+            #resume-preview-root .grid-cols-1.md\\:grid-cols-2 {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+            #resume-preview-root .grid-cols-1.md\\:grid-cols-3 {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            }
+            #resume-preview-root .md\\:aspect-\\[1\\/1\\.414\\] {
+              aspect-ratio: 1 / 1.414 !important;
+            }
+            #resume-preview-root .md\\:aspect-square {
+              aspect-ratio: 1 / 1 !important;
+            }
+            #resume-preview-root .h-auto.md\\:h-full {
+              height: 1150px !important;
             }
 
             #resume-preview-root .h-full,
@@ -529,7 +575,7 @@ export default function App() {
         </section>
 
         {/* Right Side: Preview - Centered A4 Sheet */}
-        <section className={`w-full lg:sticky lg:top-24 lg:h-[calc(100vh-160px)] flex items-start justify-center lg:justify-start ${mobileTab === 'preview' ? 'block' : 'hidden lg:block'}`}>
+        <section className={`w-full lg:sticky lg:top-24 lg:h-[calc(100vh-160px)] flex items-start justify-center lg:justify-start ${mobileTab === 'preview' || isExporting ? 'block' : 'hidden lg:block'}`}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -607,6 +653,24 @@ export default function App() {
                     Reset
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        {isExporting && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 border-4 border-indigo-500/25 border-t-indigo-500 rounded-full animate-spin mb-2" />
+                <h3 className="text-xl font-bold text-white">Compiling PDF</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Assembling high-fidelity desktop A4 document components in memory...
+                </p>
               </div>
             </motion.div>
           </div>
