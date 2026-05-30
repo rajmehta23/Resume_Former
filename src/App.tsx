@@ -146,16 +146,27 @@ export default function App() {
     if (!element) return;
     
     setIsExporting(true);
+    
+    // 1. Temporarily scroll the preview container to the top to prevent clipping/white areas
+    const container = document.getElementById('resume-preview-container');
+    const originalScrollTop = container ? container.scrollTop : 0;
+    if (container) {
+      container.scrollTop = 0;
+    }
+
     try {
+      // Pause briefly for any reflow layout
+      await new Promise(resolve => setTimeout(resolve, 80));
+
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 2.5, // Crisp 2.5x resolution for highly legible details when printed
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: '#ffffff', // Ensures clear solid background and prevents transparency/black errors
         logging: false,
         scrollX: 0,
-        scrollY: -window.scrollY,
+        scrollY: 0,
         onclone: (clonedDoc) => {
-          // 1. Clear all potentially problematic color-spaces but preserve rule layout
+          // Normalize color-spaces inside cloned style sheets
           const styleTags = clonedDoc.querySelectorAll('style');
           styleTags.forEach(tag => {
             if (tag.textContent) {
@@ -171,7 +182,7 @@ export default function App() {
             }
           });
 
-          // 2. Add high-precision layout and print overrides to the cloned head
+          // Embed custom layouts directly inside the cloned document
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
             * { 
@@ -185,7 +196,7 @@ export default function App() {
               --color-rose-500: #f43f5e !important;
             }
             
-            /* Target root layout to expand safely to natural full content height */
+            /* Match standard width/aspect ratios without clipping */
             #resume-preview-root {
               width: 820px !important;
               height: auto !important;
@@ -194,11 +205,13 @@ export default function App() {
               overflow: visible !important;
               padding: 0 !important;
               margin: 0 auto !important;
-              background-color: transparent !important;
+              background-color: #ffffff !important;
             }
 
-            /* Expand page aspect ratio so no content is clipped */
-            #resume-preview-root > div {
+            /* Strip height blockages, enable vertical responsive flow */
+            #resume-preview-root > div,
+            #resume-preview-root div[style*="aspect"],
+            #resume-preview-root [style*="aspect"] {
               aspect-ratio: auto !important;
               height: auto !important;
               min-height: 1150px !important;
@@ -208,7 +221,14 @@ export default function App() {
               border-radius: 0 !important;
             }
 
-            /* Eliminate any scroll bars and overflow restrictions */
+            /* Convert h-full classes to automatic + minimum properties so elements stretch with text */
+            #resume-preview-root .h-full,
+            #resume-preview-root [class*="h-full"] {
+              height: auto !important;
+              min-height: 100% !important;
+            }
+
+            /* Eliminate any scroll bars and overflow restrictions inside preview child elements */
             #resume-preview-root .overflow-y-auto,
             #resume-preview-root [class*="overflow-y-auto"],
             #resume-preview-root [class*="custom-scrollbar"] {
@@ -236,14 +256,16 @@ export default function App() {
               scrollbar-width: none !important;
             }
           `;
-          clonedDoc.head.appendChild(style);
+          const head = clonedDoc.head || clonedDoc.getElementsByTagName('head')[0] || clonedDoc.documentElement;
+          if (head) {
+            head.appendChild(style);
+          }
 
-          // 3. Normalize inline styles and special elements
+          // Ensure inline tags and background colors match the colors perfectly
           const elements = clonedDoc.querySelectorAll('*');
           elements.forEach((el) => {
             const htmlEl = el as HTMLElement;
             
-            // Fix inline styles with oklch
             const styleAttr = htmlEl.getAttribute('style');
             if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('oklab') || styleAttr.includes('color-mix'))) {
               htmlEl.setAttribute('style', styleAttr
@@ -253,7 +275,6 @@ export default function App() {
               );
             }
 
-            // Fix specific background colors
             if (htmlEl.classList && typeof htmlEl.classList.contains === 'function') {
               if (htmlEl.classList.contains('bg-[#1a1c1e]')) htmlEl.style.backgroundColor = '#1a1c1e';
               if (htmlEl.classList.contains('bg-[#40918b]')) htmlEl.style.backgroundColor = '#40918b';
@@ -263,13 +284,11 @@ export default function App() {
       });
       const imgData = canvas.toDataURL('image/png');
       
-      // Calculate dynamic canvas dimensions
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
-      const pdfWidth = 210; // Standard A4 width in mm
+      const pdfWidth = 210; 
       const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth;
       
-      // Create PDF with custom height to match the full height of the visual canvas
       const actualPdfHeight = Math.max(297, pdfHeight);
       const pdf = new jsPDF('p', 'mm', [pdfWidth, actualPdfHeight]);
       
@@ -278,6 +297,10 @@ export default function App() {
     } catch (err) {
       console.error('PDF Export Error:', err);
     } finally {
+      // 2. Restore original scroll state
+      if (container) {
+        container.scrollTop = originalScrollTop;
+      }
       setIsExporting(false);
     }
   };
@@ -690,7 +713,7 @@ function PersonalInfoForm({ data, setData }: { data: ResumeData, setData: (d: Re
           <div className="w-28 h-28 rounded-2xl overflow-hidden border-2 border-indigo-500/30 group-hover:border-indigo-500 transition-all duration-500 bg-slate-950 flex items-center justify-center p-1">
             <div className="w-full h-full rounded-xl overflow-hidden bg-slate-900 border border-white/5">
               {data.personalInfo.profileImage ? (
-                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
               ) : (
                 <User className="w-12 h-12 text-slate-700" />
               )}
@@ -1297,7 +1320,7 @@ function ResumePreview({ data }: { data: ResumeData }) {
           <aside className="w-[35%] bg-[#e2e4e7] p-8 flex flex-col gap-10">
             {personalInfo.profileImage && (
               <div className="w-full aspect-square rounded-2xl overflow-hidden border-2 border-white shadow-xl bg-slate-400">
-                <img src={personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                <img src={personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
               </div>
             )}
 
@@ -1618,7 +1641,7 @@ function ResumePreview({ data }: { data: ResumeData }) {
           <div className="relative z-10 flex flex-col items-center">
             {personalInfo.profileImage && (
               <div className={`w-24 h-24 rounded-full overflow-hidden border-4 ${theme === 'futuristic' ? 'border-indigo-500/50' : 'border-white'} shadow-xl mb-6`}>
-                <img src={personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                <img src={personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
               </div>
             )}
             <h1 className={`text-4xl font-black tracking-tighter uppercase mb-2 ${theme === 'minimal' ? 'text-slate-900' : ''}`}>
