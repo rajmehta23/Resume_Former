@@ -150,41 +150,19 @@ export default function App() {
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: null,
         logging: false,
-        height: element.scrollHeight,
-        windowHeight: element.scrollHeight,
         scrollX: 0,
-        scrollY: 0,
+        scrollY: -window.scrollY,
         onclone: (clonedDoc) => {
-          // 1. Aggressively sanitize all stylesheets in the cloned document
-          try {
-            const styleSheets = Array.from(clonedDoc.styleSheets);
-            styleSheets.forEach(sheet => {
-              try {
-                const rules = Array.from(sheet.cssRules);
-                for (let i = rules.length - 1; i >= 0; i--) {
-                  const rule = rules[i];
-                  if (rule.cssText && (rule.cssText.includes('oklch') || rule.cssText.includes('oklab'))) {
-                    sheet.deleteRule(i);
-                  }
-                }
-              } catch (e) {
-                // Ignore cross-origin stylesheet errors
-              }
-            });
-          } catch (e) {
-            console.error('Error cleaning stylesheets:', e);
-          }
-
-          // 2. Clear all potentially problematic style tags content
+          // 1. Clear all potentially problematic color-spaces but preserve rule layout
           const styleTags = clonedDoc.querySelectorAll('style');
           styleTags.forEach(tag => {
             if (tag.textContent) {
               tag.textContent = tag.textContent
-                .replace(/oklch\([^)]+\)/g, '#000000')
-                .replace(/oklab\([^)]+\)/g, '#000000')
-                .replace(/color-mix\([^)]+\)/g, '#000000')
+                .replace(/oklch\([^)]+\)/g, '#64748b')
+                .replace(/oklab\([^)]+\)/g, '#64748b')
+                .replace(/color-mix\([^)]+\)/g, '#64748b')
                 .replace(/--shadow:[^;]+;/g, '--shadow: none;')
                 .replace(/--shadow-md:[^;]+;/g, '--shadow-md: none;')
                 .replace(/--shadow-lg:[^;]+;/g, '--shadow-lg: none;')
@@ -193,56 +171,85 @@ export default function App() {
             }
           });
 
-          // 3. Add an aggressive style override to the cloned head
+          // 2. Add high-precision layout and print overrides to the cloned head
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
             * { 
               transition: none !important; 
               animation: none !important; 
-              box-shadow: none !important;
-              text-shadow: none !important;
-              border-image: none !important;
-              -webkit-border-image: none !important;
             }
             :root {
-              --shadow: none !important;
-              --shadow-sm: none !important;
-              --shadow-md: none !important;
-              --shadow-lg: none !important;
-              --shadow-xl: none !important;
-              --shadow-2xl: none !important;
-              --shadow-inner: none !important;
               --color-slate-500: #64748b !important;
               --color-indigo-500: #818cf8 !important;
               --color-emerald-500: #10b981 !important;
               --color-rose-500: #f43f5e !important;
             }
-            *[class*="bg-gradient-"] {
-              background-image: none !important;
-              background-color: #f1f5f9 !important;
-            }
-            /* Ensure the cloned element has no height constraints */
+            
+            /* Target root layout to expand safely to natural full content height */
             #resume-preview-root {
+              width: 820px !important;
               height: auto !important;
               min-height: 0 !important;
               max-height: none !important;
               overflow: visible !important;
+              padding: 0 !important;
+              margin: 0 auto !important;
+              background-color: transparent !important;
+            }
+
+            /* Expand page aspect ratio so no content is clipped */
+            #resume-preview-root > div {
+              aspect-ratio: auto !important;
+              height: auto !important;
+              min-height: 1150px !important;
+              max-height: none !important;
+              overflow: visible !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+            }
+
+            /* Eliminate any scroll bars and overflow restrictions */
+            #resume-preview-root .overflow-y-auto,
+            #resume-preview-root [class*="overflow-y-auto"],
+            #resume-preview-root [class*="custom-scrollbar"] {
+              overflow: visible !important;
+              overflow-y: visible !important;
+              height: auto !important;
+              max-height: none !important;
+              flex: 1 1 auto !important;
+            }
+
+            #resume-preview-root main,
+            #resume-preview-root aside {
+              height: auto !important;
+              min-height: 100% !important;
+              overflow: visible !important;
+            }
+
+            /* Hide scrollbars during snapshot rendering */
+            ::-webkit-scrollbar {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+            * {
+              scrollbar-width: none !important;
             }
           `;
           clonedDoc.head.appendChild(style);
 
-          // 4. Force fix all elements
+          // 3. Normalize inline styles and special elements
           const elements = clonedDoc.querySelectorAll('*');
           elements.forEach((el) => {
             const htmlEl = el as HTMLElement;
             
-            // Fix inline styles
+            // Fix inline styles with oklch
             const styleAttr = htmlEl.getAttribute('style');
             if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('oklab') || styleAttr.includes('color-mix'))) {
               htmlEl.setAttribute('style', styleAttr
-                .replace(/oklch\([^)]+\)/g, '#000000')
-                .replace(/oklab\([^)]+\)/g, '#000000')
-                .replace(/color-mix\([^)]+\)/g, '#000000')
+                .replace(/oklch\([^)]+\)/g, '#64748b')
+                .replace(/oklab\([^)]+\)/g, '#64748b')
+                .replace(/color-mix\([^)]+\)/g, '#64748b')
               );
             }
 
@@ -256,14 +263,13 @@ export default function App() {
       });
       const imgData = canvas.toDataURL('image/png');
       
-      // Calculate dimensions
+      // Calculate dynamic canvas dimensions
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
-      const pdfWidth = 210; // A4 width in mm
+      const pdfWidth = 210; // Standard A4 width in mm
       const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth;
       
-      // Create PDF with custom height to avoid cutoff if it's long, or the standard A4
-      // We'll use a dynamic page height if it's significantly longer than A4
+      // Create PDF with custom height to match the full height of the visual canvas
       const actualPdfHeight = Math.max(297, pdfHeight);
       const pdf = new jsPDF('p', 'mm', [pdfWidth, actualPdfHeight]);
       
@@ -622,11 +628,41 @@ function PersonalInfoForm({ data, setData }: { data: ResumeData, setData: (d: Re
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setData({
-          ...data,
-          personalInfo: { ...data.personalInfo, profileImage: reader.result as string }
-        });
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create a canvas to resize the image
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 400; // Limit dimensions to 400px
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress to JPEG with 0.7 quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            setData({
+              ...data,
+              personalInfo: { ...data.personalInfo, profileImage: dataUrl }
+            });
+          }
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
