@@ -90,6 +90,7 @@ export default function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [apiKeyOverride, setApiKeyOverride] = useState(localStorage.getItem('GEMINI_API_KEY_OVERRIDE') || '');
+  const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
 
   const calculateScore = (resume: ResumeData) => {
     let score = 0;
@@ -159,45 +160,43 @@ export default function App() {
       await new Promise(resolve => setTimeout(resolve, 80));
 
       const canvas = await html2canvas(element, {
-        scale: 2.5, // Crisp 2.5x resolution for highly legible details when printed
+        scale: 2, // Stable, high-fidelity scale that works seamlessly across all devices and browsers
         useCORS: true,
-        backgroundColor: '#ffffff', // Ensures clear solid background and prevents transparency/black errors
+        backgroundColor: '#ffffff', // Explicit background avoids transparency artifacts
         logging: false,
         scrollX: 0,
         scrollY: 0,
+        windowWidth: 820, // Forces desktop layout bounds to ensure exact alignment in print
         onclone: (clonedDoc) => {
-          // Normalize color-spaces inside cloned style sheets
-          const styleTags = clonedDoc.querySelectorAll('style');
-          styleTags.forEach(tag => {
-            if (tag.textContent) {
-              tag.textContent = tag.textContent
-                .replace(/oklch\([^)]+\)/g, '#64748b')
-                .replace(/oklab\([^)]+\)/g, '#64748b')
-                .replace(/color-mix\([^)]+\)/g, '#64748b')
-                .replace(/--shadow:[^;]+;/g, '--shadow: none;')
-                .replace(/--shadow-md:[^;]+;/g, '--shadow-md: none;')
-                .replace(/--shadow-lg:[^;]+;/g, '--shadow-lg: none;')
-                .replace(/--shadow-xl:[^;]+;/g, '--shadow-xl: none;')
-                .replace(/--shadow-2xl:[^;]+;/g, '--shadow-2xl: none;');
-            }
-          });
-
-          // Embed custom layouts directly inside the cloned document
+          // Embed dynamic layout and visual overrides inside the clone
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
             * { 
               transition: none !important; 
               animation: none !important; 
+              text-rendering: optimizeLegibility !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
-            :root {
+            
+            /* Add high-priority Hex overrides for tailwind utility variables */
+            #resume-preview-root {
+              --color-slate-50: #f8fafc !important;
+              --color-slate-100: #f1f5f9 !important;
+              --color-slate-200: #e2e8f0 !important;
+              --color-slate-300: #cbd5e1 !important;
+              --color-slate-400: #94a3b8 !important;
               --color-slate-500: #64748b !important;
+              --color-slate-600: #475569 !important;
+              --color-slate-700: #334155 !important;
+              --color-slate-800: #1e293b !important;
+              --color-slate-900: #0f172a !important;
+              --color-slate-950: #020617 !important;
+              
               --color-indigo-500: #818cf8 !important;
               --color-emerald-500: #10b981 !important;
               --color-rose-500: #f43f5e !important;
-            }
-            
-            /* Match standard width/aspect ratios without clipping */
-            #resume-preview-root {
+              
               width: 820px !important;
               height: auto !important;
               min-height: 0 !important;
@@ -208,7 +207,25 @@ export default function App() {
               background-color: #ffffff !important;
             }
 
-            /* Strip height blockages, enable vertical responsive flow */
+            #resume-preview-root * {
+              --color-slate-50: #f8fafc !important;
+              --color-slate-100: #f1f5f9 !important;
+              --color-slate-200: #e2e8f0 !important;
+              --color-slate-300: #cbd5e1 !important;
+              --color-slate-400: #94a3b8 !important;
+              --color-slate-500: #64748b !important;
+              --color-slate-600: #475569 !important;
+              --color-slate-700: #334155 !important;
+              --color-slate-800: #1e293b !important;
+              --color-slate-900: #0f172a !important;
+              --color-slate-950: #020617 !important;
+              
+              --color-indigo-500: #818cf8 !important;
+              --color-emerald-500: #10b981 !important;
+              --color-rose-500: #f43f5e !important;
+            }
+
+            /* Enable seamless fluid heights to prevent truncating/clipping on layout splits */
             #resume-preview-root > div,
             #resume-preview-root div[style*="aspect"],
             #resume-preview-root [style*="aspect"] {
@@ -221,14 +238,12 @@ export default function App() {
               border-radius: 0 !important;
             }
 
-            /* Convert h-full classes to automatic + minimum properties so elements stretch with text */
             #resume-preview-root .h-full,
             #resume-preview-root [class*="h-full"] {
               height: auto !important;
               min-height: 100% !important;
             }
 
-            /* Eliminate any scroll bars and overflow restrictions inside preview child elements */
             #resume-preview-root .overflow-y-auto,
             #resume-preview-root [class*="overflow-y-auto"],
             #resume-preview-root [class*="custom-scrollbar"] {
@@ -246,7 +261,6 @@ export default function App() {
               overflow: visible !important;
             }
 
-            /* Hide scrollbars during snapshot rendering */
             ::-webkit-scrollbar {
               display: none !important;
               width: 0 !important;
@@ -256,33 +270,45 @@ export default function App() {
               scrollbar-width: none !important;
             }
           `;
-          const head = clonedDoc.head || clonedDoc.getElementsByTagName('head')[0] || clonedDoc.documentElement;
-          if (head) {
-            head.appendChild(style);
+          
+          try {
+            const head = clonedDoc.head || clonedDoc.getElementsByTagName('head')[0] || clonedDoc.documentElement;
+            if (head) {
+              head.appendChild(style);
+            }
+          } catch (e) {
+            console.error('Error appending style override tag to cloned document:', e);
           }
 
-          // Ensure inline tags and background colors match the colors perfectly
-          const elements = clonedDoc.querySelectorAll('*');
-          elements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            
-            const styleAttr = htmlEl.getAttribute('style');
-            if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('oklab') || styleAttr.includes('color-mix'))) {
-              htmlEl.setAttribute('style', styleAttr
-                .replace(/oklch\([^)]+\)/g, '#64748b')
-                .replace(/oklab\([^)]+\)/g, '#64748b')
-                .replace(/color-mix\([^)]+\)/g, '#64748b')
-              );
-            }
+          // Normalize colors and inline rules safely without throwing exceptions on SVG/XML elements
+          try {
+            const elements = clonedDoc.querySelectorAll('*');
+            elements.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              if (!htmlEl) return;
+              
+              const styleAttr = htmlEl.getAttribute('style');
+              if (styleAttr && (styleAttr.includes('oklch') || styleAttr.includes('oklab') || styleAttr.includes('color-mix'))) {
+                htmlEl.setAttribute('style', styleAttr
+                  .replace(/oklch\([^)]+\)/g, '#64748b')
+                  .replace(/oklab\([^)]+\)/g, '#64748b')
+                  .replace(/color-mix\([^)]+\)/g, '#64748b')
+                );
+              }
 
-            if (htmlEl.classList && typeof htmlEl.classList.contains === 'function') {
-              if (htmlEl.classList.contains('bg-[#1a1c1e]')) htmlEl.style.backgroundColor = '#1a1c1e';
-              if (htmlEl.classList.contains('bg-[#40918b]')) htmlEl.style.backgroundColor = '#40918b';
-            }
-          });
+              if (htmlEl.classList && typeof htmlEl.classList.contains === 'function') {
+                if (htmlEl.classList.contains('bg-[#1a1c1e]')) htmlEl.style.backgroundColor = '#1a1c1e';
+                if (htmlEl.classList.contains('bg-[#40918b]')) htmlEl.style.backgroundColor = '#40918b';
+              }
+            });
+          } catch (e) {
+            console.error('Error normalising inline elements in clone:', e);
+          }
         }
       });
-      const imgData = canvas.toDataURL('image/png');
+      
+      // Use memory-efficient and widely supported JPEG encoding instead of heavy raw PNGs
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
@@ -292,7 +318,7 @@ export default function App() {
       const actualPdfHeight = Math.max(297, pdfHeight);
       const pdf = new jsPDF('p', 'mm', [pdfWidth, actualPdfHeight]);
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`${data.personalInfo.fullName.replace(/\s+/g, '_') || 'Resume'}_ResumeFormer.pdf`);
     } catch (err) {
       console.error('PDF Export Error:', err);
@@ -388,9 +414,35 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="pt-24 pb-12 px-6 sm:px-12 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-24 items-start">
+      <main className="pt-24 pb-12 px-4 sm:px-12 max-w-[1700px] mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-8 xl:gap-24 items-start">
+        {/* Mobile Tab Switcher */}
+        <div className="lg:hidden w-full flex items-center justify-between p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl mb-2 sticky top-[72px] z-40 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => setMobileTab('edit')}
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${
+              mobileTab === 'edit'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            1. Edit Details
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('preview')}
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${
+              mobileTab === 'preview'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            2. Live Preview
+          </button>
+        </div>
+
         {/* Left Side: Form */}
-        <section className="h-[calc(100vh-160px)] lg:sticky top-24 overflow-y-auto pr-0 sm:pr-8 custom-scrollbar">
+        <section className={`w-full lg:sticky lg:top-24 lg:h-[calc(100vh-160px)] lg:overflow-y-auto pr-0 lg:pr-8 lg:custom-scrollbar ${mobileTab === 'edit' ? 'block' : 'hidden lg:block'}`}>
           <motion.div 
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -477,17 +529,17 @@ export default function App() {
         </section>
 
         {/* Right Side: Preview - Centered A4 Sheet */}
-        <section className="h-[calc(100vh-160px)] lg:sticky top-24 flex items-start justify-center lg:justify-start">
+        <section className={`w-full lg:sticky lg:top-24 lg:h-[calc(100vh-160px)] flex items-start justify-center lg:justify-start ${mobileTab === 'preview' ? 'block' : 'hidden lg:block'}`}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-[600px] aspect-[1/1.414] shadow-[0_30px_60px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden bg-white text-slate-900 border border-white/5 relative group"
+            className="w-full max-w-[600px] md:aspect-[1/1.414] shadow-[0_30px_60px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden bg-white text-slate-900 border border-white/5 relative group h-auto md:h-full"
           >
-             <div id="resume-preview-container" className="h-full w-full bg-white overflow-y-auto custom-scrollbar-light p-0">
-               <div id="resume-preview-root">
-                 <ResumePreview data={data} />
-               </div>
-            </div>
+             <div id="resume-preview-container" className="h-auto md:h-full w-full bg-white md:overflow-y-auto custom-scrollbar-light p-0">
+                <div id="resume-preview-root">
+                  <ResumePreview data={data} />
+                </div>
+             </div>
             
             {/* Corner Decorative Elements for a "Held" Look */}
             <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-indigo-500/30 rounded-tl-2xl pointer-events-none group-hover:border-indigo-500 transition-colors" />
@@ -1314,12 +1366,12 @@ function ResumePreview({ data }: { data: ResumeData }) {
   
   if (theme === 'executive') {
     return (
-      <div className="w-full max-w-[800px] mx-auto shadow-2xl overflow-hidden print:shadow-none print:max-w-none bg-white text-slate-800" style={{ aspectRatio: '1 / 1.414' }}>
-        <div className="h-full flex">
+      <div className="w-full max-w-[800px] mx-auto shadow-2xl overflow-hidden print:shadow-none print:max-w-none bg-white text-slate-800 md:aspect-[1/1.414]">
+        <div className="h-auto md:h-full flex flex-col md:flex-row">
           {/* Left Sidebar */}
-          <aside className="w-[35%] bg-[#e2e4e7] p-8 flex flex-col gap-10">
+          <aside className="w-full md:w-[35%] bg-[#e2e4e7] p-6 md:p-8 flex flex-col gap-6 md:gap-10">
             {personalInfo.profileImage && (
-              <div className="w-full aspect-square rounded-2xl overflow-hidden border-2 border-white shadow-xl bg-slate-400">
+              <div className="w-28 h-28 mx-auto md:w-full md:h-auto md:aspect-square rounded-2xl overflow-hidden border-2 border-white shadow-xl bg-slate-400">
                 <img src={personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
               </div>
             )}
@@ -1633,8 +1685,8 @@ function ResumePreview({ data }: { data: ResumeData }) {
   const styles = getThemeStyles();
 
   return (
-    <div className={`w-full max-w-[800px] mx-auto shadow-2xl overflow-hidden print:shadow-none print:max-w-none ${styles.wrapper}`} style={{ aspectRatio: '1 / 1.414' }}>
-      <div className="h-full flex flex-col">
+    <div className={`w-full max-w-[800px] mx-auto shadow-2xl overflow-hidden print:shadow-none print:max-w-none md:aspect-[1/1.414] ${styles.wrapper}`}>
+      <div className="h-auto md:h-full flex flex-col">
         {/* Header - Centered & Balanced */}
         <header className={styles.header}>
           {theme === 'futuristic' && <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />}
@@ -1685,8 +1737,8 @@ function ResumePreview({ data }: { data: ResumeData }) {
           </div>
         </header>
 
-        <div className="px-10 pb-8 flex-1 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-[180px_1fr] gap-8">
+        <div className="px-6 md:px-10 pb-8 flex-1 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6 md:gap-8">
             {/* Sidebar Column */}
             <div className="space-y-6">
               {/* Technical Skills */}
