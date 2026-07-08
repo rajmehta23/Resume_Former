@@ -2,7 +2,7 @@
 
 **The ultimate resume builder for the modern career landscape.**
 
-Live App: [https://rajmehta23.github.io/Resume_Former/](https://rajmehta23.github.io/Resume_Former/)
+Live App: (https://resume-former.vercel.app/)
 
 ---
 
